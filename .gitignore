@@ -1,0 +1,27 @@
+# Rust build artifacts
+target/
+*.rs.bk
+
+# Node.js
+node_modules/
+dist/
+*.tgz
+*.package-lock.json
+
+# Incremental cache files
+*.lock
+*.tmp
+
+# IDE/VS Code
+.vscode/
+.idea/
+
+# CI/Artifacts
+.github/workflows/*.yml.cache
+*.log
+
+# Environment variables
+.env
+
+# Binary semaphores
+*.rs.bk
