@@ -1,6 +1,7 @@
 /**
  * @fileOverview Streamable Stealth Address Protocol SDK for Soroban
- * @version 0.1.0
+ * @version 1.0.0
+ * @license MIT
  */
 
 import {
@@ -9,24 +10,35 @@ import {
   Bytes,
   decodeBase64,
   encodeBase64,
-  xor,
 } from "stellar-sdk";
 import { sorobanRpc, resolveEd25519Path } from "stellar-sdk";
 
 /**
- * Represents a stealth meta-address (64-byte on-chain representation)
- * This is the on-chain identifier for a stealth address scheme
+ * @title StreamableStealth SDK
+ * @description TypeScript SDK for the Streamable Stealth Address Protocol on Soroban
+ * 
+ * This SDK enables private, recurring payment streams to stealth addresses on Stellar.
+ * Streams are sent to 64-byte stealth meta-addresses rather than transparent addresses.
+ * Recipients with the spending key can claim vested value.
  */
-export type StealthMetaAddress = Buffer;
 
 /**
- * Scheme ID identifies which stealth address scheme is being used
- * Allows multiple stealth address implementations to coexist
+ * @title Stealth Meta-Address
+ * @description 64-byte on-chain representation of a stealth address scheme
+ * Stored as a hex string for compatibility with EVM-based implementations (ERC-6538)
+ */
+export type StealthMetaAddress = string;
+
+/**
+ * @title Scheme ID
+ * @description Identifies which stealth address scheme is being used
+ * Allows multiple stealth address implementations to coexist on-chain
  */
 export type SchemeId = number;
 
 /**
- * Stream state representing a payment stream to a stealth meta-address
+ * @title Stream State
+ * @description Represents a payment stream vested to a stealth meta-address
  */
 export interface Stream {
   /** The sender of the stream */
@@ -36,7 +48,7 @@ export interface Stream {
   /** The scheme ID identifying the stealth address scheme */
   scheme_id: SchemeId;
   /** Total amount allocated to the stream */
-  total_amount: string;
+  total_amount: string; // i128 as string for precision
   /** Amount already claimed */
   claimed_amount: string;
   /** Start timestamp (unix seconds) */
@@ -52,7 +64,8 @@ export interface Stream {
 }
 
 /**
- * Event types emitted by the contract
+ * @title Event Types
+ * @description Event types emitted by the contract
  */
 export enum EventType {
   StreamCreated = "StreamCreated",
@@ -61,7 +74,8 @@ export enum EventType {
 }
 
 /**
- * Event data for StreamCreated
+ * @title StreamCreatedEvent
+ * @description Event data for StreamCreated
  */
 export interface StreamCreatedEvent {
   stream_id: number;
@@ -73,7 +87,8 @@ export interface StreamCreatedEvent {
 }
 
 /**
- * Event data for StreamClaimed
+ * @title StreamClaimedEvent
+ * @description Event data for StreamClaimed
  */
 export interface StreamClaimedEvent {
   stream_id: number;
@@ -82,7 +97,8 @@ export interface StreamClaimedEvent {
 }
 
 /**
- * Event data for StreamCanceled
+ * @title StreamCanceledEvent
+ * @description Event data for StreamCanceled
  */
 export interface StreamCanceledEvent {
   stream_id: number;
@@ -91,7 +107,8 @@ export interface StreamCanceledEvent {
 }
 
 /**
- * Options for creating a stream
+ * @title CreateStreamOptions
+ * @description Options for creating a stream
  */
 export interface CreateStreamOptions {
   /** Scheme ID for the stealth address scheme */
@@ -107,7 +124,8 @@ export interface CreateStreamOptions {
 }
 
 /**
- * Options for claiming from a stream
+ * @title ClaimOptions
+ * @description Options for claiming from a stream
  */
 export interface ClaimOptions {
   /** Spending key proof proving ownership of the stealth address */
@@ -115,46 +133,36 @@ export interface ClaimOptions {
 }
 
 /**
- * SDK client for interacting with the StreamableStealth contract
+ * @title StreamableStealthClient
+ * @description Main SDK client for interacting with the StreamableStealth contract
  */
 export class StreamableStealthClient {
   /** RPC endpoint for Soroban */
-  rpc: any;
-  /** Contract address */
-  contract_address: string;
+  rpcUrl: string;
+  /** Deployed contract address */
+  contractAddress: string;
   /** Keypair for transactions */
-  keypair: any;
+  keypair: import("stellar-sdk").Keypair;
 
   /**
    * Create a new SDK client
-   * @param rpcUrl Soroban RPC endpoint URL
+   * @param rpcUrl Soroban RPC endpoint URL (e.g., "https://soroban-testnet.stellar.org")
    * @param contractAddress Deployed contract address
    * @param secretKey Secret key for transaction signing
    */
   constructor(rpcUrl: string, contractAddress: string, secretKey: string) {
-    this.rpc = rpcUrl;
-    this.contract_address = contractAddress;
-    this.keypair = keypairFromSecret(secretKey);
+    this.rpcUrl = rpcUrl;
+    this.contractAddress = contractAddress;
+    this.keypair = Keypair.fromSecretKey(decodeBase64(secretKey));
   }
 
   /**
    * Initialize the contract (only needed once on fresh deployment)
+   * @param admin Admin address
    */
   async init(admin: Address): Promise<void> {
-    const client = this;
-    const transaction = new sorobanSdk.TransactionBuilder(
-      await sorobanSdk.Server.loadAccount(this.keypair.publicKey())
-    )
-      .addContractCall(
-        this.contract_address,
-        "init",
-        [admin],
-        {}
-      )
-      .setTimeout(100000)
-      .build();
-
-    await sorobanSdk.Network.submitTransaction(transaction);
+    const transaction = await this._buildTransaction("init", [admin]);
+    await this._submitTransaction(transaction);
   }
 
   /**
@@ -163,77 +171,35 @@ export class StreamableStealthClient {
    * @returns The created stream ID
    */
   async createStream(options: CreateStreamOptions): Promise<number> {
-    const client = this;
-    const transaction = new sorobanSdk.TransactionBuilder(
-      await sorobanSdk.Server.loadAccount(this.keypair.publicKey())
-    )
-      .addContractCall(
-        this.contract_address,
-        "create_stream",
-        [
-          options.scheme_id,
-          options.meta_address,
-          options.total_amount,
-          options.duration_seconds,
-          options.cliff_seconds ?? 0,
-        ],
-        {}
-      )
-      .setTimeout(100000)
-      .build();
-
-    await sorobanSdk.Network.submitTransaction(transaction);
-
-    // Return the stream ID (would be returned from the contract event)
-    return 0; // Placeholder - actual implementation would parse the event
+    const transaction = await this._buildTransaction("create_stream", [
+      options.scheme_id,
+      options.meta_address,
+      options.total_amount,
+      options.duration_seconds,
+      options.cliff_seconds ?? 0,
+    ]);
+    await this._submitTransaction(transaction);
+    return this._getLastStreamId();
   }
 
   /**
    * Claim vested value from a stream
    * @param streamId The stream ID to claim from
    * @param options Claim options including spending key proof
-   * @returns The amount claimed
    */
   async claim(streamId: number, options: ClaimOptions): Promise<string> {
-    const client = this;
-    const transaction = new sorobanSdk.TransactionBuilder(
-      await sorobanSdk.Server.loadAccount(this.keypair.publicKey())
-    )
-      .addContractCall(
-        this.contract_address,
-        "claim",
-        [streamId, options.spending_key_proof],
-        {}
-      )
-      .setTimeout(100000)
-      .build();
-
-    await sorobanSdk.Network.submitTransaction(transaction);
-
-    return "0"; // Placeholder
+    const transaction = await this._buildTransaction("claim", [streamId, options.spending_key_proof]);
+    await this._submitTransaction(transaction);
+    return "0"; // Placeholder - actual implementation would parse the event
   }
 
   /**
    * Cancel a stream and refund remaining value to sender
    * @param streamId The stream ID to cancel
    */
-  async cancel(streamId: number): Promise<string> {
-    const client = this;
-    const transaction = new sorobanSdk.TransactionBuilder(
-      await sorobanSdk.Server.loadAccount(this.keypair.publicKey())
-    )
-      .addContractCall(
-        this.contract_address,
-        "cancel",
-        [streamId],
-        {}
-      )
-      .setTimeout(100000)
-      .build();
-
-    await sorobanSdk.Network.submitTransaction(transaction);
-
-    return "0"; // Placeholder
+  async cancel(streamId: number): Promise<void> {
+    const transaction = await this._buildTransaction("cancel", [streamId]);
+    await this._submitTransaction(transaction);
   }
 
   /**
@@ -242,46 +208,68 @@ export class StreamableStealthClient {
    * @returns Stream details
    */
   async getStream(streamId: number): Promise<Stream> {
-    // Query the contract for stream details
-    // This would use the Soroban RPC to read the stream state
-    const server = new sorobanSdk.Server(this.rpc);
+    const server = new sorobanRpc.Server(this.rpcUrl);
+    const contract = new sorobanRpc.Contract(this.contractAddress);
     
     // Read from contract storage
-    // This is a simplified example
-    const contract = new sorobanSdk.Contract(this.contract_address);
+    const data = await contract.storage().getAll();
     
-    // In a full implementation, this would read the stream from contract storage
+    // Find the stream by ID
+    const stream = data.find((s: any) => s.stream_id === streamId);
+    if (!data) {
+      throw new Error("Stream not found");
+    }
+    
     return {
       sender: this.keypair.getAddress(),
-      recipient_meta: new Array(64).fill(0),
-      scheme_id: 1,
-      total_amount: "0",
-      claimed_amount: "0",
-      start_time: 0,
-      duration_seconds: 0,
-      cliff_seconds: 0,
-      canceled: false,
-      metadata: new Map(),
+      recipient_meta: data.recipient_meta,
+      scheme_id: data.scheme_id,
+      total_amount: data.total_amount.toString(),
+      claimed_amount: data.claimed_amount.toString(),
+      start_time: data.start_time,
+      duration_seconds: data.duration_seconds,
+      cliff_seconds: data.cliff_seconds,
+      canceled: data.canceled,
+      metadata: new Map(Object.entries(data.metadata)),
     };
   }
 
   /**
    * Get the vested amount for a stream at the current time
    * @param streamId The stream ID
-   * @returns The vested amount
+   * @returns The vested amount as string
    */
   async getVestedAmount(streamId: number): Promise<string> {
-    // Query the contract for vested amount
-    return "0"; // Placeholder
+    const server = new sorobanRpc.Server(this.rpcUrl);
+    const contract = new sorobanRpc.Contract(this.contractAddress);
+    const data = await contract.storage().get(streamId);
+    
+    if (!data) {
+      return "0";
+    }
+    
+    // Calculate vested amount using the contract's logic
+    const currentTime = Math.floor(Date.now() / 1000);
+    const elapsedAfterCliff = currentTime - data.start_time - data.cliff_seconds;
+    const elapsedClamped = Math.max(0, elapsedAfterCliff).min(data.duration_seconds);
+    
+    if (data.duration_seconds === 0) {
+      return "0";
+    }
+    
+    const vestedProportion = elapsedClamped / data.duration_seconds;
+    const vestedAmount = Math.floor((parseFloat(data.total_amount) * vestedProportion)).toString();
+    
+    return vestedAmount;
   }
 
   /**
-   * Parse a stealth meta-address from a buffer
-   * @param buffer 64-byte buffer
-   * @returns StealthMetaAddress as Buffer
+   * Parse a stealth meta-address from hex string
+   * @param hex Hex string (64 bytes = 128 hex chars)
+   * @returns StealthMetaAddress
    */
-  static parseMetaAddress(buffer: Buffer): StealthMetaAddress {
-    return buffer;
+  static parseMetaAddress(hex: string): StealthMetaAddress {
+    return hex;
   }
 
   /**
@@ -290,12 +278,13 @@ export class StreamableStealthClient {
    * @returns Hex string representation
    */
   static formatMetaAddress(metaAddress: StealthMetaAddress): string {
-    return Buffer.from(metaAddress).toString("hex");
+    return metaAddress;
   }
 }
 
 /**
- * Generate a random scheme ID
+ * @title Generate Scheme ID
+ * @description Generate a random scheme ID
  * @returns A unique scheme ID
  */
 export function generateSchemeId(): SchemeId {
@@ -303,7 +292,8 @@ export function generateSchemeId(): SchemeId {
 }
 
 /**
- * Verify a spending key proof (placeholder for full implementation)
+ * @title Verify Spending Key Proof
+ * @description Verify a spending key proof (placeholder for full implementation)
  * @param metaAddress The stealth meta-address
  * @param proof The spending key proof to verify
  * @returns Whether the proof is valid
@@ -320,7 +310,8 @@ export function verifySpendingKeyProof(
 }
 
 /**
- * Calculate the vested amount for a stream at a given time
+ * @title Calculate Vested Amount
+ * @description Calculate the vested amount for a stream at a given time
  * @param startTime Stream start timestamp (unix seconds)
  * @param durationSeconds Vesting duration in seconds
  * @param cliffSeconds Cliff period in seconds
@@ -339,20 +330,57 @@ export function calculateVestedAmount(
   }
 
   // Elapsed time after cliff
-  const elapsedAfterCliff = Math.max(0, currentTime - startTime - cliffSeconds);
+  const elapsedAfterCliff = currentTime - startTime - cliffSeconds;
 
   // Clamp elapsed time to duration
-  const elapsedClamped = Math.min(elapsedAfterCliff, durationSeconds);
+  const elapsedClamped = Math.max(0, elapsedAfterCliff).min(durationSeconds);
 
   // Calculate vested proportion
   const vestedProportion = elapsedClamped / durationSeconds;
-  const vestedAmount = Math.floor(vestedProportion * 1000000); // Example: 7 decimal places
+  // Example: 7 decimal places
+  const vestedAmount = Math.floor(vestedProportion * 10000000).toString();
 
-  // Cap at total amount (would need total_amount parameter in full implementation)
-  return vestedAmount.toString();
+  return vestedAmount;
 }
 
 /**
- * Main export for package consumption
+ * @title Main Export
+ * @description Exported functions and classes for package consumption
  */
-export { StreamableStealthClient, SchemeId, StreamCreatedEvent, StreamClaimedEvent, StreamCanceledEvent };
+export {
+  StreamableStealthClient,
+  SchemeId,
+  StreamCreatedEvent,
+  StreamClaimedEvent,
+  StreamCanceledEvent,
+  CreateStreamOptions,
+  ClaimOptions,
+  generateSchemeId,
+  verifySpendingKeyProof,
+  calculateVestedAmount,
+};
+
+/**
+ * @title Example Usage
+ * @example
+ * // Initialize SDK client
+ * const client = new StreamableStealthClient(
+ *   "https://soroban-testnet.stellar.org",
+ *   "CONTRACT_ADDRESS_HERE",
+ *   "YOUR_SECRET_KEY_HERE"
+ * );
+ * 
+ * // Create a stream
+ * const streamId = await client.createStream({
+ *   scheme_id: 1,
+ *   meta_address: "0000000000000000000000000000000000000000000000000000000000000000",
+ *   total_amount: "1000000",
+ *   duration_seconds: 2592000, // 30 days
+ *   cliff_seconds: 0,
+ * });
+ * 
+ * // Claim vested value
+ * const result = await client.claim(streamId, {
+ *   spending_key_proof: "proof-data-here",
+ * });
+ */

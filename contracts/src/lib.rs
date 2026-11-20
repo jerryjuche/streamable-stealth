@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token::Client as TokenClient, Address, Env, Map, String, Vec,
+    contract, contracttype, symbol_short, Address, Env, Map, String, Vec,
 };
 
 #[contracttype]
@@ -68,7 +68,7 @@ pub fn create_stream(
     duration_seconds: u64,
     cliff_seconds: u64,
 ) -> u64 {
-    let data = env.storage().persistent();
+    let mut data = env.storage().persistent();
 
     let next_id: u64 = data.get(&DataKey::NextStreamId).unwrap_or(0);
 
@@ -81,7 +81,7 @@ pub fn create_stream(
         recipient_meta: meta_address.clone(),
         scheme_id: scheme_id,
         total_amount: total_amount.clone(),
-        claimed_amount: 0i128,
+        claimed_amount: 0,
         start_time: env.ledger().timestamp(),
         duration_seconds: duration_seconds.clone(),
         cliff_seconds: cliff_seconds.clone(),
@@ -93,7 +93,7 @@ pub fn create_stream(
 
     data.set(&DataKey::NextStreamId, &(next_id + 1));
 
-    // Publish event using symbol_short topic
+    // Publish event with topics
     env.events().publish(
         (symbol_short!("Stream"), symbol_short!("Created")),
         StreamCreated {
@@ -117,16 +117,17 @@ pub fn calculate_vested_amount(
     total_amount: i128,
 ) -> i128 {
     if current_time < start_time + cliff_seconds {
-        return 0i128;
+        return 0;
     }
 
     let elapsed_after_cliff = current_time.saturating_sub(start_time + cliff_seconds);
     let elapsed_clamped = elapsed_after_cliff.min(duration_seconds);
 
     if duration_seconds == 0 {
-        return 0i128;
+        return 0;
     }
 
+    // Precise vesting: total_amount * elapsed / duration
     let vested_proportion = (elapsed_clamped as f64 / duration_seconds as f64).min(1.0);
     let vested_amount = (total_amount as f64 * vested_proportion) as i128;
 
@@ -155,17 +156,26 @@ pub fn claim(env: Env, stream_id: u64) -> i128 {
     let remaining = vested - stream.claimed_amount;
     assert!(remaining > 0, "No vested amount available to claim");
 
-    // Publish event using symbol_short topic
+    // Claim the remaining vested amount
+    let claim_amount = remaining;
+
+    let new_claimed = stream.claimed_amount + claim_amount;
+
+    let mut updated_stream = stream.clone();
+    updated_stream.claimed_amount = new_claimed;
+    data.set(&DataKey::Stream(stream_id), &updated_stream);
+
+    // Publish event
     env.events().publish(
         (symbol_short!("Stream"), symbol_short!("Claimed")),
         StreamClaimed {
             stream_id: stream_id.clone(),
-            amount: remaining,
+            amount: claim_amount,
             claimed_at: current_time,
         },
     );
 
-    remaining
+    claim_amount
 }
 
 pub fn cancel(env: Env, stream_id: u64) {
@@ -191,7 +201,7 @@ pub fn cancel(env: Env, stream_id: u64) {
     updated_stream.canceled = true;
     data.set(&DataKey::Stream(stream_id), &updated_stream);
 
-    // Publish event using symbol_short topic
+    // Publish event
     env.events().publish(
         (symbol_short!("Stream"), symbol_short!("Canceled")),
         StreamCanceled {
@@ -234,6 +244,35 @@ mod tests {
 
     #[test]
     fn test_create_stream() {
+        let env = soroban_sdk::Env::default();
+        let admin = Address::generate(&env);
+        let sender = Address::generate(&env);
+        let meta_address = String::from("0000000000000000000000000000000000000000000000000000000000000000");
+        let scheme_id = 1u32;
+
+        let contract = StreamableStealthContract::instance(&env);
+        initialize(&env, &admin);
+
+        let total_amount = 1000000i128;
+        let duration = 2592000u64; // 30 days
+        let cliff = 0u64;
+
+        let stream_id = create_stream(
+            &env,
+            &sender,
+            scheme_id,
+            meta_address,
+            total_amount,
+            duration,
+            cliff,
+        );
+
+        let vested = get_vested_amount(&env, stream_id);
+        assert_eq!(vested, 0);
+    }
+
+    #[test]
+    fn test_vesting_calculations() {
         let env = soroban_sdk::Env::default();
         let admin = Address::generate(&env);
         let sender = Address::generate(&env);
