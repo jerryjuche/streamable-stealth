@@ -2,16 +2,14 @@
 
 **A Soroban smart contract and TypeScript SDK enabling private, recurring payment streams to stealth addresses on Stellar.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/jerryjuche/streamable-stealth)
-[![Build: Passing](https://img.shields.io/github/actions/workflow/status/jerryjuche/streamable-stealth/ci.yml)](https://github.com/jerryjuche/streamable-stealth/blob/main/.github/workflows/ci.yml)
-[![GitHub](https://img.shields.io/github/stars/jerryjuche/streamable-stealth?style=social)](https://github.com/jerryjuche/streamable-stealth)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Build: Passing](https://img.shields.io/github/actions/workflow/status/jerryjuche/streamable-stealth/ci.yml)
 
 ---
 
 ## 📡 Quick Links
 
-- **Drips Wave**: https://www.drips.network/wave
 - **GitHub**: https://github.com/jerryjuche/streamable-stealth
 - **Stellar Docs**: https://developers.stellar.org/docs
 - **Soroban SDK**: https://soroban.stellar.org/docs
@@ -54,7 +52,6 @@ Traditional Soroban streams send value to transparent recipient addresses, makin
 - Node.js 18+
 - Rust (for contract development)
 - Soroban development environment (testnet/horizon)
-- GitHub account (for Drips Wave participation)
 
 ### Installation
 
@@ -133,49 +130,6 @@ fn main() {
 
 ---
 
-## 🎯 Drips Wave Participation
-
-This project is specifically set up for **Drips Wave** contributor engagement. The repository includes all the components needed for a successful Wave submission:
-
-### Repository Requirements Met
-
-| Requirement | Status |
-|---|---|
-| Public GitHub repository ✅ | https://github.com/jerryjuche/streamable-stealth |
-| Soroban smart contract ✅ | Compiles with Soroban SDK 21.7.7 |
-| Labeled issues ✅ | 6 Wave-labeled issues in `issues/` folder |
-| Documentation ✅ | `README.md` and `docs/overview.md` |
-| TypeScript SDK ✅ | Builds with `npm run build` |
-| CI workflow ✅ | `.github/workflows/ci.yml` on `main` branch |
-
-### Wave Issues (950 Total Points)
-
-| Issue | Complexity | Points | Description |
-|---|---|---|---|
-| **#001** | Trivial | 100 | Improve documentation examples |
-| **#002** | Trivial | 100 | Fix TypeScript type errors |
-| **#003** | Medium | 150 | Add batch stream creation support |
-| **#004** | High | 200 | Implement spending key proof verification |
-| **#005** | Medium | 150 | Add ERC-6538 meta-address format support |
-| **#006** | Medium | 150 | Improve error handling and messages |
-
-### How to Participate in Drips Wave
-
-1. **Log in** at https://www.drips.network/wave with your GitHub account
-2. **Navigate**: Maintainers → Orgs and Repos → Install Drips Wave GitHub App
-3. **Apply** your repository to the Stellar Wave Program
-4. **Add** the 6 labeled issues to your Wave Program dashboard
-5. **During the Wave** (7-day sprint), contributors fix issues and earn Points
-6. **Points** translate to real rewards distributed after the Wave
-
-### Current Wave
-
-- **Wave 11** is active until **November 25th, 2026**
-- **Budget**: $75,000
-- **Your project**: Streamable Stealth Address Protocol
-
----
-
 ## 📁 Project Structure
 
 ```text
@@ -189,7 +143,7 @@ streamable-stealth/
 │   ├── tsconfig.json
 │   └── src/
 │       └── index.ts    # SDK source (builds with npm run build)
-├── issues/           # 6 Wave-labeled issues
+├── issues/           # 6 labeled issues for contributors
 ├── docs/             # Documentation
 │   └── overview.md
 ├── README.md         # This file
@@ -232,7 +186,7 @@ streamable-stealth/
 
 ## 📜 License
 
-MIT License - Copyright (c) 2024 Drips Wave Ecosystem
+MIT License - Copyright (c) 2024
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -242,12 +196,11 @@ The above copyright notice and this permission notice shall be included in all c
 
 ## 🐛 Contributing
 
-This project welcomes contributions from the Stellar ecosystem. See the `issues/` folder for Wave-labeled issues ready for contributors:
+This project welcomes contributions from the Stellar ecosystem. The repository includes 6 labeled issues ready for contributors to work on during sprint cycles:
 
-1. **Pick an issue** - 6 labeled issues with point values (100/150/200 pts)
-2. **Work on a fix** - Follow the issue description and complexity level
+1. **Pick an issue** - 6 labeled issues with point values
+2. **Work on a fix** - Follow the issue description
 3. **Submit a PR** - Include clear description and testing
-4. **Earn Points** - Points translate to rewards from the Wave budget
 
 ---
 
@@ -270,22 +223,12 @@ cargo check     # Compile check
 cargo test      # Run test suite
 ```
 
-### Running CI Locally
-
-```bash
-cd streamable-stealth
-# CI workflow validates on push to main branch
-# Includes: format check, type check, test execution, build validation
-```
-
 ---
 
 ## 📬 Contact & Support
 
 - **GitHub Issues**: https://github.com/jerryjuche/streamable-stealth/issues
-- **Drips Wave**: https://www.drips.network/wave
 - **Stellar Community**: https://discord.stellar.org
-- **Email**: opensource@drips.network
 
 ---
 *Streamable Stealth Address Protocol - Private recurring payment streams on Soroban*
