@@ -14,8 +14,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "stellar-sdk": "^31.0.0",
-    "soroban-sdk": "^21.0.0"
+    "stellar-sdk": "^13.0.0"
   },
   "devDependencies": {
     "prettier": "^3.0.0",
