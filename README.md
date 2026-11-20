@@ -6,6 +6,7 @@
 ![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Build: Passing](https://img.shields.io/github/actions/workflow/status/jerryjuche/streamable-stealth/ci.yml)
 
+
 ---
 
 ## 📡 Quick Links
